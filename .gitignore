@@ -1,0 +1,11 @@
+# Node / extension noise
+node_modules/
+
+# Env files (future backend)
+.env
+
+# OS files
+.DS_Store
+
+# VS Code
+.vscode/
