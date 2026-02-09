@@ -1,8 +1,15 @@
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
 # Node / extension noise
 node_modules/
-
-# Env files (future backend)
-.env
+dist/
 
 # OS files
 .DS_Store
