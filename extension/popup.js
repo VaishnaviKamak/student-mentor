@@ -1,15 +1,21 @@
 const chat = document.getElementById("chat");
 const input = document.getElementById("userInput");
 const sendBtn = document.getElementById("sendBtn");
+const statusDot = document.getElementById("statusDot");
+const statusText = document.getElementById("statusText");
 
 let chatHistory = [];
+let isWaiting = false;
 
 console.log("popup.js loaded");
 
+function setStatus(state) {
+  statusDot.className = "status-dot " + state;
+  if (state === "idle") statusText.textContent = "Ready";
+  if (state === "thinking") statusText.textContent = "Thinking...";
+  if (state === "error") statusText.textContent = "Backend offline";
+}
 
-/* -----------------------------
-   Helpers: Chat Rendering
--------------------------------- */
 function addMessage(text, sender) {
   const msg = document.createElement("div");
   msg.classList.add("message", sender);
@@ -17,21 +23,37 @@ function addMessage(text, sender) {
   const id = "msg-" + Date.now();
   msg.id = id;
 
-  msg.textContent = text;
+  if (sender === "mentor") {
+    const avatar = document.createElement("div");
+    avatar.className = "avatar";
+    avatar.textContent = "🎓";
+    msg.appendChild(avatar);
+  }
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.textContent = text;
+  msg.appendChild(bubble);
+
   chat.appendChild(msg);
-  chat.scrollTop = chat.scrollHeight;  //scrolls content to bottom
+  chat.scrollTop = chat.scrollHeight;
 
   chatHistory.push({ sender, text });
   return id;
 }
 
-/* -----------------------------
-   Helpers: Storage
--------------------------------- */
+function updateMessage(id, text) {
+  const msg = document.getElementById(id);
+  if (!msg) return;
+  const bubble = msg.querySelector(".bubble");
+  if (bubble) bubble.textContent = text;
+  chatHistory[chatHistory.length - 1].text = text;
+}
+
 function getProblemKey() {
   return new Promise((resolve) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      resolve(tabs[0].url);
+      resolve(tabs[0]?.url || "unknown");
     });
   });
 }
@@ -48,9 +70,6 @@ function loadChat(problemKey) {
   });
 }
 
-/* -----------------------------
-   Intent Guards
--------------------------------- */
 function isSolutionRequest(q) {
   return (
     q.includes("give solution") ||
@@ -61,47 +80,46 @@ function isSolutionRequest(q) {
   );
 }
 
-/* -----------------------------
-   Core Logic
--------------------------------- */
+/* Core Logic */
 async function handleSend() {
-
-  console.log("handleSend fired");
+  if (isWaiting) return;
 
   const question = input.value.trim();
   if (!question) return;
 
   addMessage(question, "user");
   input.value = "";
+  input.disabled = true;
+  sendBtn.disabled = true;
+  isWaiting = true;
+  setStatus("thinking");
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     chrome.tabs.sendMessage(
       tabs[0].id,
       { type: "GET_CONTEXT" },
       async (context) => {
-
-        console.log("Context received:", context);
         if (!context || !context.problemText) {
           addMessage(
-            "Please open a LeetCode problem so I can help you 🙂",
+            "Please open a LeetCode problem page so I can help you 🙂",
             "mentor"
           );
+          resetInput();
           return;
         }
 
         const q = question.toLowerCase();
 
-        // 🚫 Block solution requests
         if (isSolutionRequest(q)) {
           addMessage(
-            "I won’t give direct solutions 🙂 Let’s focus on understanding. What have you tried so far?",
+            "I won't give direct solutions 🙂 Let's focus on understanding. What have you tried so far?",
             "mentor"
           );
+          resetInput();
           return;
         }
 
-        // ⏳ Loading message
-        const loadingId = addMessage("Thinking...", "mentor");
+        const loadingId = addMessage("...", "mentor");
 
         try {
           const res = await fetch("http://127.0.0.1:8000/mentor", {
@@ -110,43 +128,41 @@ async function handleSend() {
             body: JSON.stringify({
               problem_text: context.problemText,
               user_code: context.userCode,
-              question: question
-            })
+              question: question,
+            }),
           });
 
           if (!res.ok) throw new Error("Backend error");
 
           const data = await res.json();
-          document.getElementById(loadingId).textContent = data.reply;
+          updateMessage(loadingId, data.reply);
 
-          // 🔹 Update stored mentor message
-          chatHistory[chatHistory.length - 1].text = data.reply;
-
-          // 💾 Save chat
           const problemKey = await getProblemKey();
           saveChat(problemKey, chatHistory);
-
+          setStatus("idle");
         } catch (e) {
-          const errorMsg =
-            "Sorry, I couldn’t reach the mentor. Please try again.";
-
-          document.getElementById(loadingId).textContent = errorMsg;
-          chatHistory[chatHistory.length - 1].text = errorMsg;
-
-          const problemKey = await getProblemKey();
-          saveChat(problemKey, chatHistory);
-
+          updateMessage(loadingId, "Sorry, I couldn't reach the mentor. Is the backend running?");
+          setStatus("error");
           console.error(e);
         }
+
+        resetInput();
       }
     );
   });
 }
 
-/* -----------------------------
-   Load Chat on Popup Open
--------------------------------- */
+function resetInput() {
+  input.disabled = false;
+  sendBtn.disabled = false;
+  isWaiting = false;
+  input.focus();
+}
+
+
 window.addEventListener("DOMContentLoaded", async () => {
+  setStatus("idle");
+
   const problemKey = await getProblemKey();
   chatHistory = await loadChat(problemKey);
 
@@ -154,25 +170,34 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   if (chatHistory.length === 0) {
     addMessage(
-      "Hi! I’m your mentor. Ask me about the problem you’re solving 🙂",
+      "Hi! I'm your mentor. Ask me anything about the problem you're solving 🙂",
       "mentor"
     );
     return;
   }
 
-  chatHistory.forEach(m => {
+  chatHistory.forEach((m) => {
     const msg = document.createElement("div");
     msg.classList.add("message", m.sender);
-    msg.textContent = m.text;
+
+    if (m.sender === "mentor") {
+      const avatar = document.createElement("div");
+      avatar.className = "avatar";
+      avatar.textContent = "🎓";
+      msg.appendChild(avatar);
+    }
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = m.text;
+    msg.appendChild(bubble);
+
     chat.appendChild(msg);
   });
 
   chat.scrollTop = chat.scrollHeight;
 });
 
-/* -----------------------------
-   Event Listeners
--------------------------------- */
 sendBtn.addEventListener("click", handleSend);
 
 input.addEventListener("keypress", (e) => {

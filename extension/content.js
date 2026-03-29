@@ -19,7 +19,6 @@ function waitForProblemDescription() {
     return;
   }
 
-  // Only meaningful text nodes
   const elements = root.querySelectorAll("p, li, pre");
   let text = "";
 

@@ -3,34 +3,43 @@
 <head>
   <meta charset="UTF-8" />
   <title>Student Mentor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
   <div class="container">
-    <!-- Header -->
-    <div class="header">
-      <span>🎓 Student Mentor</span>
-    </div>
 
-    <!-- Chat area -->
-    <div id="chat" class="chat">
-      <div class="message mentor">
-        Hi! I’m your mentor.  
-        Ask me about the problem you’re solving 🙂
+    <div class="header">
+      <div class="header-left">
+        <span class="header-icon">🎓</span>
+        <span class="header-title">Student Mentor</span>
+      </div>
+      <div class="status-bar">
+        <span class="status-dot idle" id="statusDot"></span>
+        <span class="status-text" id="statusText">Ready</span>
       </div>
     </div>
 
-    <!-- Input area -->
+    <div id="chat" class="chat"></div>
+
     <div class="input-area">
       <input
         type="text"
         id="userInput"
-        placeholder="Ask a question about this problem..."
+        placeholder="Ask about this problem..."
+        autocomplete="off"
       />
-      <button id="sendBtn">Send</button>
+      <button id="sendBtn" aria-label="Send">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
     </div>
-  </div>
 
+  </div>
   <script src="popup.js"></script>
 </body>
 </html>
